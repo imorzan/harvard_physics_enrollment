@@ -1,0 +1,142 @@
+---
+title: "Harvard Physics Enrollment Analysis"
+author: "Igor Morzan"
+date: "4/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Loads the libraries to run the code
+
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(janitor)
+library(dplyr)
+library(ggthemes)
+library(fs)
+
+# Downloads Spring 2019 course enrollment data from the Harvard Registrar 
+
+download.file(url = "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_2.28.19.xlsx", destfile = "enrollment_2019.xsls", mode = "wb")
+
+# downloads Spring 2018 course enrollment data from the Harvard Registrar
+
+download.file(url = "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_03.06.18.xlsx", destfile = "enrollment_2018.xsls", mode = "wb")
+  
+# Reads the data from the Spring 2019 enrollment dataset
+
+spring_enrollment_2019 <-
+  
+  # Skips the first 3 rows to clean the dataset
+  
+  read_excel("enrollment_2019.xsls", skip = 3) %>%
+  
+  # Makes all names lowercase in order to work with the data easier
+  
+  clean_names() %>%
+  
+  # Filters for course sections where there are no NA values
+  
+  filter(!is.na(course_section_code))
+  
+# Reads the data from the Spring 2018 enrollment dataset
+
+spring_enrollment_2018 <-
+  
+  # Skips the first 3 rows to clean the dataset
+  
+  read_excel("enrollment_2018.xsls", skip = 3) %>%
+  
+  # Makes all names lowercase in order to work with the data easier
+  
+  clean_names() %>%
+  
+  # Filters for course sections where there are no NA values
+  
+  filter(!is.na(course_section_code))
+
+# Deletes the files that were just created for a cleaner workstation
+
+file_delete(c("enrollment_2019.xsls", "enrollment_2018.xsls"))
+```
+
+```{r upload data, echo=FALSE, message=FALSE, warning=FALSE}
+# Filters for the Physics course department in the datasets
+
+physics_2019 <- spring_enrollment_2019 %>%
+  
+  filter(course_department == "Physics")
+
+physics_2018 <- spring_enrollment_2018 %>%
+  
+  filter(course_department == "Physics")
+```
+
+```{r, echo=FALSE}
+# Joins the 2 datasets by looking for similar course ID's
+
+combined_datasets <- inner_join(physics_2019, physics_2018, by= "course_id", 
+                                suffix = c(".2019", ".2018")) %>%
+  
+  # Creates the enrollment differences variable by subtracting enrollment from 2018 and 2019
+  
+  mutate(enrollment_differences = u_grad.2019 - u_grad.2018) %>% 
+  
+  # Selects for any relevant variables that will be used to graph the Physics enrollment differences
+  
+  select(course_title.2019, course_name.2019, u_grad.2018, u_grad.2019, enrollment_differences)
+
+# Creates new dataset which selects the 4 Physics courses with the greatest decrease in enrollment
+
+lowest_enrollment <- combined_datasets %>% 
+  arrange(enrollment_differences) %>% 
+  slice(1:4)
+
+# Creates new dataset which selects the 4 Physics courses with the greatest increase in enrollment
+
+highest_enrollment <- combined_datasets %>% 
+  arrange(desc(enrollment_differences)) %>% 
+  slice(1:4)
+
+# I use bind rows to bind the 2 dataframes into 1 in order to graph the combined dataset
+
+physics_graph <- bind_rows(highest_enrollment, lowest_enrollment)
+
+# Creates the ggplot for the changes in Physics course enrollments
+
+physics_graph  %>%
+  
+  # Places the differences of enrollment on the Y axis and fills the graph with the enrollment differences values
+  ggplot(aes(x = reorder(course_name.2019, enrollment_differences),
+             y = enrollment_differences, fill = enrollment_differences)) +
+    
+  # Appropriate titles and labels to better visualization of the data
+  labs(title = "Physics Course Enrollments",
+       subtitle = "Depicts changes in Physics Course enrollments from Spring '18 - '19",
+        y = "Enrollment Differences",
+        x = NULL,
+        caption = "Source: Harvard Registrar") +
+  
+  # Hides the legend in this column chart
+  geom_col(show.legend = FALSE) +
+  
+  # Sets the higher values with the green color scheme, and lower values with the red color scheme
+  # Midpoint of the graph is set to 0 so that the graph looks more symmetrical
+  
+  scale_fill_gradient2(midpoint = 0, high = "green", low = "red") +
+ 
+  # Flips the X and Y axis so that the graph is cleaner
+  coord_flip() +
+  
+  # Applies the minimal theme from ggthemes
+  theme_minimal() +
+  
+  # Edits the font size and style of the title, x axis', and y axis' for a cleaner graph
+  theme(title = element_text(size = 11, face = "bold"),
+        axis.text.x = element_text(size = 10, face = "bold"),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        legend.position = "none")
+```
