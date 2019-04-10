@@ -135,8 +135,8 @@ physics_graph  %>%
   theme_minimal() +
   
   # Edits the font size and style of the title, x axis', and y axis' for a cleaner graph
-  theme(title = element_text(size = 11, face = "bold"),
-        axis.text.x = element_text(size = 10, face = "bold"),
-        axis.text.y = element_text(size = 10, face = "bold"),
+  theme(title = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(size = 9, face = "bold"),
+        axis.text.y = element_text(size = 9, face = "bold"),
         legend.position = "none")
 ```
